@@ -1,0 +1,12 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: Apply base styles */
+@layer base {
+  body {
+    @apply font-sans bg-gray-100; /* Example: default font, light gray background */
+    margin: 0; /* Critical: Remove default margin */
+  }
+}
