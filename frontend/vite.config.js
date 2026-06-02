@@ -7,9 +7,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: process.env.NODE_ENV === 'production' 
+        target: process.env.NODE_ENV === 'production'
           ? 'https://bookswap-f15c.onrender.com'
           : 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Also proxy /uploads so book images load in dev without needing full URL
+      '/uploads': {
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
       }

@@ -162,7 +162,11 @@ const BookDetailsPage = () => {
   if (error) return <p className="text-center text-red-500 py-10">Error: {error}</p>;
   if (!book) return <p className="text-center py-10">Book not found.</p>;
 
-  const imageUrl = book.imageUrl || bookPlaceholder;
+  const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const rawImageUrl = book.imageUrl;
+  const imageUrl = rawImageUrl
+    ? rawImageUrl.startsWith("http") ? rawImageUrl : `${BACKEND_URL}${rawImageUrl}`
+    : bookPlaceholder;
 
   // Prevent requesting own book
   const isOwnBook = book.seller && book.seller._id === currentUserId;

@@ -2,11 +2,35 @@
 const Book = require("../models/Book");
 
 
-// GET /api/books - Fetch all books (Public)
+// GET /api/books - Fetch all books, with optional ?search= query (Public)
 const getAllBooks = async (req, res) => {
   try {
-    // Optional: Add filtering/pagination later if needed
-    const books = await Book.find()
+    const { search, genre, condition } = req.query;
+
+    // Build a dynamic filter object
+    const filter = {};
+
+    // Search by title or author (case-insensitive partial match)
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim(), 'i');
+      filter.$or = [
+        { title: { $regex: regex } },
+        { author: { $regex: regex } },
+        { genre: { $regex: regex } },
+      ];
+    }
+
+    // Optional: filter by genre
+    if (genre && genre.trim()) {
+      filter.genre = new RegExp(genre.trim(), 'i');
+    }
+
+    // Optional: filter by condition
+    if (condition && condition.trim()) {
+      filter.condition = condition.trim();
+    }
+
+    const books = await Book.find(filter)
                             .populate('user', 'name email profilePic') // Populate seller info
                             .sort({ createdAt: -1 }); // Sort by newest first
     res.status(200).json(books);
