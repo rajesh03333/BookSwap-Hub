@@ -442,12 +442,3 @@ Potential improvements include:
 * API documentation with Swagger/OpenAPI
 
 ---
-
-## 👨‍💻 Author
-
-**Rajesh Gajula**
-
-Computer Science Engineering Student
-
-* GitHub: https://github.com/rajesh03333
-* LinkedIn: https://linkedin.com/in/rajesh-gajula
