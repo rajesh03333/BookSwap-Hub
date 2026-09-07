@@ -5,38 +5,105 @@ const Book = require("../models/Book");
 // GET /api/books - Fetch all books, with optional ?search= query (Public)
 const getAllBooks = async (req, res) => {
   try {
-    const { search, genre, condition } = req.query;
+    const apiStart = Date.now();
 
-    // Build a dynamic filter object
+    const { search, genre, condition, page = 1 } = req.query;
+
     const filter = {};
 
-    // Search by title or author (case-insensitive partial match)
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), 'i');
-      filter.$or = [
-        { title: { $regex: regex } },
-        { author: { $regex: regex } },
-        { genre: { $regex: regex } },
-      ];
+    if (search?.trim()) {
+      filter.$text = {
+        $search: search.trim(),
+      };
     }
 
-    // Optional: filter by genre
-    if (genre && genre.trim()) {
-      filter.genre = new RegExp(genre.trim(), 'i');
+    if (genre?.trim()) {
+      filter.genre = genre.trim();
     }
 
-    // Optional: filter by condition
-    if (condition && condition.trim()) {
+    if (condition?.trim()) {
       filter.condition = condition.trim();
     }
 
+    const limit = 50;
+    const currentPage = Number(page);
+    const skip = (currentPage - 1) * limit;
+
+    // Optional: Explain query for debugging
+    const explain = await Book.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .explain("executionStats");
+
+    console.log("===== DB QUERY STATS =====");
+    console.log(
+      "Execution Time:",
+      explain.executionStats.executionTimeMillis,
+      "ms"
+    );
+    console.log(
+      "Documents Examined:",
+      explain.executionStats.totalDocsExamined
+    );
+    console.log(
+      "Keys Examined:",
+      explain.executionStats.totalKeysExamined
+    );
+    console.log(
+      "Returned:",
+      explain.executionStats.nReturned
+    );
+
+    const dbStart = Date.now();
+
+    // Fetch books
     const books = await Book.find(filter)
-                            .populate('user', 'name email profilePic') // Populate seller info
-                            .sort({ createdAt: -1 }); // Sort by newest first
-    res.status(200).json(books);
+      .select(
+        "title author genre condition image price createdAt user"
+      )
+      .populate({
+        path: "user",
+        select: "name email profilePic",
+        options: { lean: true },
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // ⭐ NEW: Count total matching books
+    const totalBooks = await Book.countDocuments(filter);
+
+    console.log(
+      "Actual Query Time:",
+      Date.now() - dbStart,
+      "ms"
+    );
+
+    console.log(
+      "Total API Time:",
+      Date.now() - apiStart,
+      "ms"
+    );
+
+    return res.status(200).json({
+      books,
+      currentPage,
+      totalPages: Math.ceil(totalBooks / limit),
+      totalBooks,
+      hasNextPage: currentPage < Math.ceil(totalBooks / limit),
+      hasPreviousPage: currentPage > 1,
+    });
+
   } catch (error) {
     console.error("Get all books error:", error);
-    res.status(500).json({ message: "Failed to fetch books", details: error.message });
+
+    return res.status(500).json({
+      message: "Failed to fetch books",
+      error: error.message,
+    });
   }
 };
 

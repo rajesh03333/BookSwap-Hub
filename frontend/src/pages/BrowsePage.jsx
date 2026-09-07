@@ -2,16 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import BookCard from '../components/BookCard';
 
-// Placeholder data - Replace with API call
-const placeholderBooks = [
-  { _id: '1', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', price: 12.99, condition: 'Good', imageUrl: 'https://via.placeholder.com/150/FF0000/FFFFFF?text=Book1' },
-  { _id: '2', title: 'To Kill a Mockingbird', author: 'Harper Lee', price: 10.50, condition: 'Very Good', imageUrl: 'https://via.placeholder.com/150/00FF00/FFFFFF?text=Book2' },
-  { _id: '3', title: '1984', author: 'George Orwell', price: 8.75, condition: 'Acceptable', imageUrl: 'https://via.placeholder.com/150/0000FF/FFFFFF?text=Book3' },
-  { _id: '4', title: 'Pride and Prejudice', author: 'Jane Austen', price: 11.00, condition: 'Like New', imageUrl: 'https://via.placeholder.com/150/FFFF00/000000?text=Book4' },
-  { _id: '5', title: 'The Catcher in the Rye', author: 'J.D. Salinger', price: 9.25, condition: 'Good' }, // No image example
-  { _id: '6', title: 'The Hobbit', author: 'J.R.R. Tolkien', price: 14.00, condition: 'Very Good', imageUrl: 'https://via.placeholder.com/150/FF00FF/FFFFFF?text=Book6' },
-];
-
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 const BrowsePage = () => {
@@ -20,54 +10,65 @@ const BrowsePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch books from API
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   useEffect(() => {
     const fetchBooks = async () => {
       setLoading(true);
       setError(null);
+
       try {
-        // Build query string for search term
-        const queryParams = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : '';
-        
-        // Fetch books from API
-        const response = await fetch(`${API_URL}/api/books${queryParams}`);
-        
+        const queryParams = new URLSearchParams();
+
+        queryParams.append('page', page);
+
+        if (searchTerm.trim()) {
+          queryParams.append('search', searchTerm);
+        }
+
+        const response = await fetch(
+          `${API_URL}/api/books?${queryParams.toString()}`
+        );
+
         if (!response.ok) {
           throw new Error('Failed to fetch books');
         }
-        
+
         const data = await response.json();
-        setBooks(data);
+
+        setBooks(data.books);
+        setTotalPages(data.totalPages);
       } catch (err) {
-        console.error('Error fetching books:', err);
+        console.error(err);
         setError(err.message);
-        setBooks([]); // Clear books on error
+        setBooks([]);
       } finally {
         setLoading(false);
       }
     };
 
-    // Debounce search to avoid too many requests
-    const timeoutId = setTimeout(() => {
-      fetchBooks();
-    }, 300);
+    const timeoutId = setTimeout(fetchBooks, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]); // Refetch when searchTerm changes
+  }, [searchTerm, page]);
 
-  const handleSearchChange = (event) => {
-    setSearchTerm(event.target.value);
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPage(1);
   };
 
-  // Shared input field styling
-  const inputClasses = "w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-brown focus:border-transparent transition duration-200";
-
+  const inputClasses =
+    'w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-brown focus:border-transparent transition duration-200';
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold font-serif text-brand-brown mb-6">Browse Books</h1>
+      <h1 className="text-3xl font-bold font-serif text-brand-brown mb-6">
+        Browse Books
+      </h1>
 
-      {/* Search Bar */}
+      {/* Search */}
       <div className="mb-8 max-w-lg">
         <input
           type="text"
@@ -76,21 +77,93 @@ const BrowsePage = () => {
           onChange={handleSearchChange}
           className={inputClasses}
         />
-        {/* TODO: Add Filter dropdowns/buttons here (Genre, Condition, Price Range) */}
       </div>
 
-      {/* Book Grid */}
-      {loading && <p className="text-center text-gray-500">Loading books...</p>}
-      {error && <p className="text-center text-red-500">Error: {error}</p>}
-      {!loading && !error && books.length === 0 && (
-        <p className="text-center text-gray-500">No books found matching your criteria.</p>
+      {/* Loading */}
+      {loading && (
+        <p className="text-center text-gray-500">
+          Loading books...
+        </p>
       )}
+
+      {/* Error */}
+      {error && (
+        <p className="text-center text-red-500">
+          Error: {error}
+        </p>
+      )}
+
+      {/* Empty */}
+      {!loading && !error && books.length === 0 && (
+        <p className="text-center text-gray-500">
+          No books found.
+        </p>
+      )}
+
+      {/* Books */}
       {!loading && !error && books.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {books.map((book) => (
-            <BookCard key={book._id || book.id} book={book} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {books.map((book) => (
+              <BookCard
+                key={book._id || book.id}
+                book={book}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex justify-center items-center gap-2 mt-10 flex-wrap">
+
+            {/* Previous */}
+            <button
+              onClick={() => setPage((prev) => prev - 1)}
+              disabled={page === 1}
+              className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+
+            {/* Page Numbers */}
+            {Array.from(
+              { length: Math.min(totalPages, 5) },
+              (_, index) => {
+                const startPage = Math.max(
+                  1,
+                  Math.min(page - 2, totalPages - 4)
+                );
+
+                const pageNumber = startPage + index;
+
+                if (pageNumber > totalPages) return null;
+
+                return (
+                  <button
+                    key={pageNumber}
+                    onClick={() => setPage(pageNumber)}
+                    className={`px-4 py-2 rounded border ${
+                      page === pageNumber
+                        ? 'bg-brand-brown text-white'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                );
+              }
+            )}
+
+            {/* Next */}
+            <button
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={page === totalPages}
+              className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+
+          </div>
+        </>
       )}
     </div>
   );
